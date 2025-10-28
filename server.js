@@ -4,7 +4,7 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ CORS so frontend can call your API
+// ✅ Allow frontend access
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   next();
@@ -16,23 +16,21 @@ app.get("/", (req, res) => {
 
 app.get("/check-vpn", async (req, res) => {
   try {
-    // Get IP address (priority: query > header > socket)
+    // Get IP (query param > header > socket)
     let ip =
       req.query.ip ||
       req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
       req.socket.remoteAddress;
 
-    // Clean "::ffff:" prefix
     if (ip?.startsWith("::ffff:")) ip = ip.split("::ffff:")[1];
-    // Prevent local IPs
-    if (!ip || ip === "127.0.0.1" || ip === "::1") ip = "8.8.8.8"; // fallback to Google
+    if (!ip || ip === "127.0.0.1" || ip === "::1") ip = "8.8.8.8"; // fallback
 
-    // Fetch IP info
-    const response = await fetch(`https://ipapi.co/${ip}/json/`);
+    // ✅ Fetch IP info from ipinfo.io
+    const response = await fetch(`https://ipinfo.io/${ip}/json`);
     const data = await response.json();
 
     const org = data.org || "Unknown";
-    const country = data.country_name || "Unknown";
+    const country = data.country || "Unknown";
 
     const vpnKeywords = [
       "vpn",
@@ -48,7 +46,9 @@ app.get("/check-vpn", async (req, res) => {
       "data center"
     ];
 
-    const isVpn = vpnKeywords.some((k) => org.toLowerCase().includes(k));
+    const isVpn = vpnKeywords.some((k) =>
+      org.toLowerCase().includes(k.toLowerCase())
+    );
 
     res.json({
       ip,
@@ -60,9 +60,11 @@ app.get("/check-vpn", async (req, res) => {
         : "✅ Normal connection",
     });
   } catch (error) {
-    console.error("Error in /check-vpn:", error);
+    console.error("❌ Error in /check-vpn:", error);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Server running on http://localhost:${PORT}`)
+);
